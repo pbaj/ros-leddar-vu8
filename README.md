@@ -1,6 +1,6 @@
-# LeddarTech Vu8 ROS Driver
+# LeddarTech Vu8 ROS Driver [![Build Status](https://travis-ci.org/dispatch-ai/ros-leddar-vu8.svg?branch=master)](https://travis-ci.org/dispatch-ai/ros-leddar-vu8)
 
-ROS package that configures and communicates with the LeddarTech Vu8 over [CAN](https://www.kernel.org/doc/Documentation/networking/can.txt).
+ROS package that configures and communicates with the [LeddarTech Vu8](http://leddartech.com/modules/leddarvu/) over [CAN](https://www.kernel.org/doc/Documentation/networking/can.txt).
 
 ## Build
 
@@ -51,7 +51,8 @@ $ roslaunch leddar_vu8 leddar_vu8.launch --screen
 
 ## Params
 
-These are static [node parameters]() you can define when starting the driver:
+These are static [private parameters](http://wiki.ros.org/Parameter%20Server#Private_Parameters)
+you can define when starting the driver:
 
 * `interface` CAN network interface, defaults to `can0`.
 * `send_timeout` socket send timeout, defaults to `0` (i.e. no timeout).
@@ -63,8 +64,8 @@ These are static [node parameters]() you can define when starting the driver:
 * `rate` frequency at which to publish detection scans in hertz, defaults to `50`.
 * `frame_id` name of the [tf](http://wiki.ros.org/tf) frame to use when publishing detection scans, defaults to `laser`.
 
-There are also parameters defined in [Config.cfg](cfg/Config.cfg) that can be
-changed [dynamically](http://wiki.ros.org/dynamic_reconfigure) using e.g.:
+There are also [dynamic parameters](http://wiki.ros.org/dynamic_reconfigure) defined
+in [Config.cfg](cfg/Config.cfg) that can be using e.g.:
 
 ```bash
 $ rosrun rqt_reconfigure rqt_reconfigure
@@ -80,7 +81,7 @@ $ cd ~/code/ros-leddar-vu8-project
 $ cmake -G"Eclipse CDT4 - Unix Makefiles" -D CMAKE_BUILD_TYPE=Debug -D CATKIN_ENABLE_TESTING=ON ~/code/ros-leddar-vu8
 ```
 
-and install CAN tools:
+and then install [CAN utils](https://github.com/linux-can/can-utils):
 
 ```bash
 $ sudo apt-get install can-utils
