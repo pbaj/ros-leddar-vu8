@@ -1,0 +1,32 @@
+<?xml version="1.0"?>
+<launch>
+    <arg name="interface" default="can0"/>
+    <arg name="frame_id" default="laser"/>
+    <arg name="fov" default="100.0"/>
+    <arg name="min_range" default="0.0"/>
+    <arg name="max_range" default="50.0"/>
+    <arg name="rate" default="50.0"/>
+    <arg name="respawn" default="false"/>
+    <arg name="view" default="true"/>
+
+    <node name="leddar_vu8"
+          pkg="leddar_vu8" 
+          type="leddar_vu8"
+          output="screen"
+          required="true"
+          respawn="$(arg respawn)">
+        <param name="interface" value="$(arg interface)"/>
+        <param name="frame_id" value="$(arg frame_id)"/>
+        <param name="fov" value="$(arg fov)"/>
+        <param name="rate" value="$(arg rate)"/>
+        <param name="min_range" value="$(arg min_range)"/>
+        <param name="max_range" value="$(arg max_range)"/>
+    </node>
+
+    <node name="leddar_vu8_viz"
+          pkg="rviz" 
+          type="rviz"
+          args="-d $(find leddar_vu8)/launch/leddar_vu8.rviz"
+          if="$(arg view)">
+    </node>
+</launch>

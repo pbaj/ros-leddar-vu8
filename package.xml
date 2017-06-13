@@ -1,0 +1,25 @@
+<?xml version="1.0"?>
+<package>
+  <name>leddar_vu8</name>
+  <version>0.1.0</version>
+  <description>
+      This package provides a ROS interface to Leddar Vu8 sensor.
+  </description>
+
+  <maintainer email="andrew@dispatch.ai">Andrew</maintainer>
+  <license>MIT</license>
+  <author email="andrew@dispatch.ai">Andrew</author>
+
+  <buildtool_depend>catkin</buildtool_depend>
+  <build_depend>roscpp</build_depend>
+  <build_depend>sensor_msgs</build_depend>
+  <build_depend>std_msgs</build_depend>
+  <build_depend>dynamic_reconfigure</build_depend>
+
+  <run_depend>roscpp</run_depend>
+  <run_depend>sensor_msgs</run_depend>
+  <run_depend>std_msgs</run_depend>
+  <run_depend>dynamic_reconfigure</run_depend>
+
+  <export> </export>
+</package>
