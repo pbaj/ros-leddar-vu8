@@ -27,6 +27,7 @@
           pkg="rviz" 
           type="rviz"
           args="-d $(find leddar_vu8)/launch/leddar_vu8.rviz"
+          required="true"
           if="$(arg view)">
     </node>
 </launch>

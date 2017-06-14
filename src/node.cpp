@@ -2,19 +2,6 @@
 
 #include "node.h"
 
-class ContinuousDetectionsGuard {
-public:
-    ContinuousDetectionsGuard(leddar_vu8::Sensor &sensor) : sensor(sensor) {
-    }
-
-    ~ContinuousDetectionsGuard() {
-        sensor.StopStream();
-    }
-
-    leddar_vu8::Sensor &sensor;
-};
-
-
 Node::Node(ros::NodeHandle nh):
     nh_(nh)
 {}
@@ -104,7 +91,25 @@ bool Node::Initialize() {
     // load sensor config
     ROS_INFO("loading sensor config");
     leddar_vu8::Config &config = sensor_.config();
-    if (!sensor_.config().Load()) {
+    if (nh_.hasParam("base_tx_message_id")) {
+        int base_tx_message_id;
+        if (!nh_.getParam("base_tx_message_id", base_tx_message_id)) {
+            ROS_ERROR("~base_tx_message_id parameter must be integer");
+            return false;
+        }
+        config.base_tx_message_id(base_tx_message_id);
+    }
+    ROS_INFO_STREAM("base_tx_message_id=" << config.base_tx_message_id());
+    if (nh_.hasParam("base_rx_message_id")) {
+        int base_rx_message_id;
+        if (!nh_.getParam("base_rx_message_id", base_rx_message_id)) {
+            ROS_ERROR("~base_rx_message_id parameter must be integer");
+            return false;
+        }
+        config.base_rx_message_id(base_rx_message_id);
+    }
+    ROS_INFO_STREAM("base_rx_message_id=" << config.base_rx_message_id());
+    if (!config.Load()) {
         return false;
     }
 
@@ -126,6 +131,18 @@ void Node::Close() {
 }
 
 bool Node::StreamForever() {
+    struct ContinuousDetectionsGuard {
+        ContinuousDetectionsGuard(leddar_vu8::Sensor &sensor) :
+            sensor(sensor) {
+        }
+
+        ~ContinuousDetectionsGuard() {
+            sensor.StopStream();
+        }
+
+        leddar_vu8::Sensor &sensor;
+    };
+
     // continuous
     if (!sensor_.StartStream()) {
         return false;

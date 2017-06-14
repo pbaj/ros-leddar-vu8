@@ -1,6 +1,7 @@
 #ifndef __LEDDAR_VU8_H__
 #define __LEDDAR_VU8_H__
 
+#include <condition_variable>
 #include <mutex>
 #include <thread>
 #include <string>
@@ -270,6 +271,8 @@ private:
     void Listen();
 
     std::thread thd_;
+    std::condition_variable listening_cv_;
+    std::mutex listening_mtx_;
     bool listening_  = false;
     std::string interface_;
     double timeout_;
@@ -277,7 +280,7 @@ private:
     unsigned int max_detections_;
     int sock_ = -1;
     int notify_ = -1;
-    mutable std::mutex echos_lock_;
+    mutable std::mutex echos_mtx_;
     unsigned int seq_ = 0;
     std::vector<Echo> echos_;
 };

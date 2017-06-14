@@ -61,6 +61,8 @@ you can define when starting the driver:
 * `fov` detection field-of-view in degrees, defaults to `100
 * `rate` frequency at which to publish detection scans in hertz, defaults to `50`.
 * `frame_id` name of the [tf](http://wiki.ros.org/tf) frame to use when publishing detection scans, defaults to `laser`.
+* `base_rx_message_id` base id of CAN messages sent to sensor, defaults to `0x740`.
+* `base_tx_message_id` base id of CAN messages received from sensor, defaults to `0x750`.
 
 There are also [dynamic parameters](http://wiki.ros.org/dynamic_reconfigure) defined
 in [Config.cfg](cfg/Config.cfg) that can be set using e.g.:

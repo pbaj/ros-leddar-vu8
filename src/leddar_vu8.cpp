@@ -253,7 +253,6 @@ bool Stream::Start() {
     notify_ = notify;
     notify = -1;
     result = true;
-    thd_ = std::thread(&Stream::Listen, this);
 
 cleanup:
     if (sock != -1) {
@@ -263,6 +262,16 @@ cleanup:
     if (notify != -1) {
         close(notify);
         notify = -1;
+    }
+
+    thd_ = std::thread(&Stream::Listen, this);
+    std::unique_lock<std::mutex> lk(listening_mtx_);
+    listening_cv_.wait_for(
+        lk, std::chrono::seconds(1), [&]{ return listening_; }
+    );
+    if (!listening_) {
+        Stop();
+        result = false;
     }
 
     return result;
@@ -301,7 +310,7 @@ unsigned int Stream::sequence() const {
 }
 
 void Stream::last(unsigned int &seq, std::vector<Echo> &echos) const {
-    LockGuard guard(echos_lock_);
+    LockGuard guard(echos_mtx_);
     seq = seq_;
     echos = echos_;
 }
@@ -309,8 +318,8 @@ void Stream::last(unsigned int &seq, std::vector<Echo> &echos) const {
 void Stream::Listen() {
 
     struct ListeningGuard {
-        ListeningGuard(bool &listening) : listening_(listening) {
-            listening_ = true;
+       ListeningGuard(bool &listening) : listening_(listening) {
+           listening_ = true;
        }
 
        ~ListeningGuard() {
@@ -321,6 +330,7 @@ void Stream::Listen() {
     };
 
     ListeningGuard listening_guard(listening_);
+    listening_cv_.notify_all();
 
     LEDDAR_VU8_LOG_INFO("streaming to 0x" << std::hex << sock_);
 
@@ -377,7 +387,7 @@ void Stream::Listen() {
                     echos[detection_i].from_data(data);
                     detection_i += 1;
                     if (detection_i == detection_count) {
-                        LockGuard guard(echos_lock_);
+                        LockGuard guard(echos_mtx_);
                         std::swap(echos_, echos);
                         seq_ += 1;
                     }
@@ -579,6 +589,7 @@ bool Sensor::StartStream() {
         return false;
     }
 
+    LEDDAR_VU8_LOG_INFO("started streaming detection messages");
     return true;
 }
 
@@ -596,7 +607,8 @@ bool Sensor::StopStream() {
         return false;
     }
 
-    return false;
+    LEDDAR_VU8_LOG_INFO("stopped streaming detection messages");
+    return true;
 }
 
 // Config
