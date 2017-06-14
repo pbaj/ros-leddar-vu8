@@ -2,7 +2,7 @@
 
 ROS package that configures and communicates with the [LeddarTech Vu8](http://leddartech.com/modules/leddarvu/) over [CAN](https://www.kernel.org/doc/Documentation/networking/can.txt).
 
-## Build
+## build
 
 Clone it to e.g. `~/code/ros-leddar-vu8`:
 
@@ -31,25 +31,23 @@ and finally build:
 $ catkin_make
 ```
 
-## Run
+## run
 
 Connect your [Leddar Vu8](http://leddartech.com/modules/leddarvu/) over CAN (e.g.
-using a [USB/CAN adapter](http://www.peak-system.com/PCAN-USB.199.0.html?L=1)).
-
-Setup a network interface for it, e.g.:
+using a [USB/CAN adapter](http://www.peak-system.com/PCAN-USB.199.0.html?L=1)) and setup a network interface for it, e.g.:
 
 ```bash
 $ sudo ip link set can0 up type can bitrate 1000000
 $ sudo ifconfig can0 up
 ```
 
-and launch the driver along w/ rviz to see points:
+Then launch the driver along w/ rviz to see points:
 
 ```bash
 $ roslaunch leddar_vu8 leddar_vu8.launch --screen
 ```
 
-## Params
+## params
 
 These are static [private parameters](http://wiki.ros.org/Parameter%20Server#Private_Parameters)
 you can define when starting the driver:
@@ -65,13 +63,13 @@ you can define when starting the driver:
 * `frame_id` name of the [tf](http://wiki.ros.org/tf) frame to use when publishing detection scans, defaults to `laser`.
 
 There are also [dynamic parameters](http://wiki.ros.org/dynamic_reconfigure) defined
-in [Config.cfg](cfg/Config.cfg) that can be using e.g.:
+in [Config.cfg](cfg/Config.cfg) that can be set using e.g.:
 
 ```bash
 $ rosrun rqt_reconfigure rqt_reconfigure
 ```
 
-## Develop
+## develop
 
 You can create e.g. an [Eclipde CDT](http://www.eclipse.org/cdt/) project for it:
 
