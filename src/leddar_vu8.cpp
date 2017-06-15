@@ -109,7 +109,7 @@ static bool send_and_recv_can_data(
     unsigned int remaining = 1 + retries;
 
     while (remaining != 0) {
-        if (retries != 0) {
+        if (retries != 0 && remaining != 1) {
             LOG_INFO("retry " << retries - remaining + 1 << "/" << retries << " rx_message_id=" << rx_message_id <<
                     " tx_message_id=" << tx_message_id);
         }
@@ -146,7 +146,8 @@ static bool send_and_recv_can_data(
         // success
         break;
     }
-    return false;
+
+    return true;
 }
 
 
@@ -161,7 +162,7 @@ static bool send_and_echo_can_data(
     unsigned int remaining = 1 + retries;
 
     while (remaining != 0) {
-        if (retries != 0) {
+        if (retries != 0 && remaining != 1) {
             LOG_INFO("retry " << retries - remaining - 1 << "/" << retries << " rx_message_id=" << rx_message_id <<
                     " tx_message_id=" << tx_message_id);
         }
@@ -193,7 +194,8 @@ static bool send_and_echo_can_data(
         // success
         break;
     }
-    return false;
+
+    return true;
 }
 
 static canid_t can_mask(canid_t b, canid_t e) {
