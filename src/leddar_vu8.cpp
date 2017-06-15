@@ -278,7 +278,7 @@ bool Stream::Start() {
     if (interface_.size() + 1 > IF_NAMESIZE) {
         LOG_ERROR("interface " << interface_ << " length > " << IF_NAMESIZE);
     }
-    snprintf(ifr.ifr_name, interface_.size() + 1, interface_.c_str());
+    snprintf(ifr.ifr_name, IF_NAMESIZE, "%s", interface_.c_str());
     rc = ioctl(sock, SIOCGIFINDEX, &ifr);
     if (rc == -1) {
         LOG_ERROR("find interface " << interface_ << " index failed w/ errno " << errno << " - " << strerror(errno));
@@ -528,7 +528,7 @@ bool Sensor::Connect() {
     if (interface_.size() + 1 > IF_NAMESIZE) {
         LOG_ERROR("interface " << interface_ << " length > " << IF_NAMESIZE);
     }
-    snprintf(ifr.ifr_name, interface_.size() + 1, interface_.c_str());
+    snprintf(ifr.ifr_name, IF_NAMESIZE, "%s", interface_.c_str());
     rc = ioctl(sock, SIOCGIFINDEX, &ifr);
     if (rc == -1) {
         LOG_ERROR("find interface " << interface_ << " index failed w/ errno " << errno << " - " << strerror(errno));
