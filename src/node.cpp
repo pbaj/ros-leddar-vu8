@@ -81,14 +81,8 @@ bool Node::Initialize() {
     }
     ROS_INFO_STREAM("frame_id=" << frame_id_);
 
-    // connect to sensor
-    sensor_.receive_timeout(recv_timeout);
-    ROS_INFO("connecting to sensor");
-    if (!sensor_.Connect()) {
-        return false;
-    }
 
-    // load sensor config
+    // config
     ROS_INFO("loading sensor config");
     leddar_vu8::Config &config = sensor_.config();
     if (nh_.hasParam("base_tx_message_id")) {
@@ -109,6 +103,15 @@ bool Node::Initialize() {
         config.base_rx_message_id(base_rx_message_id);
     }
     ROS_INFO_STREAM("base_rx_message_id=" << config.base_rx_message_id());
+
+    // connect to sensor
+    sensor_.receive_timeout(recv_timeout);
+    ROS_INFO("connecting to sensor");
+    if (!sensor_.Connect()) {
+        return false;
+    }
+
+    // load sensor config
     if (!config.Load()) {
         return false;
     }

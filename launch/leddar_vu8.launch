@@ -6,6 +6,9 @@
     <arg name="min_range" default="0.0"/>
     <arg name="max_range" default="50.0"/>
     <arg name="rate" default="50.0"/>
+    <arg name="base_rx_message_id" default="1856"/>
+    <arg name="base_tx_message_id" default="1872"/>
+    
     <arg name="respawn" default="false"/>
     <arg name="view" default="true"/>
 
@@ -15,12 +18,14 @@
           output="screen"
           required="true"
           respawn="$(arg respawn)">
-        <param name="interface" value="$(arg interface)"/>
-        <param name="frame_id" value="$(arg frame_id)"/>
-        <param name="fov" value="$(arg fov)"/>
-        <param name="rate" value="$(arg rate)"/>
-        <param name="min_range" value="$(arg min_range)"/>
-        <param name="max_range" value="$(arg max_range)"/>
+        <param name="interface" type="string" value="$(arg interface)"/>
+        <param name="frame_id" type="string" value="$(arg frame_id)"/>
+        <param name="fov" type="double" value="$(arg fov)"/>
+        <param name="rate" type="double" value="$(arg rate)"/>
+        <param name="min_range" type="double" value="$(arg min_range)"/>
+        <param name="max_range" type="double" value="$(arg max_range)"/>
+        <param name="base_rx_message_id" type="int" value="$(arg base_rx_message_id)"/>
+        <param name="base_tx_message_id" type="int" value="$(arg base_tx_message_id)"/>
     </node>
 
     <node name="leddar_vu8_viz"

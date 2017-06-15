@@ -1,3 +1,4 @@
+#include <cmath>
 #include <sstream>
 
 #include <errno.h>
@@ -119,9 +120,12 @@ static bool recv_answer(int sock, uint32_t message_id, uint8_t (&data)[8]) {
     return true;
 }
 
-static canid_t can_id_range_mask(canid_t start, canid_t end) {
-    // TODO: do!
-    return 0x0;
+static canid_t can_mask(canid_t b, canid_t e) {
+    const size_t w = (sizeof(canid_t) * 8);
+    // https://stackoverflow.com/a/3314434
+    canid_t prefix = (b ^ e) ? w - 1 - (int)log2(b ^ e) : w;
+    canid_t mask = ((~(canid_t)0) << (w - prefix)) & b & CAN_SFF_MASK;
+    return mask;
 }
 
 namespace leddar_vu8 {
@@ -169,6 +173,7 @@ bool Stream::Start() {
     int notify = -1;
     int rc = 0;
     bool result = false;
+    struct can_filter filter[1];
 
     // create the socket
     sock = socket(PF_CAN, SOCK_RAW, CAN_RAW);
@@ -224,19 +229,21 @@ bool Stream::Start() {
     }
 
     // filter
-//    struct can_filter filter[1];
-//    filter[0].can_id = base_tx_message_id_ + 1;
-//    filter[0].can_mask = can_id_range_mask(
-//        base_tx_message_id_ + 1,
-//        base_tx_message_id_ + 1 + max_detections_
-//    );
-//    rc = setsockopt(sock, SOL_CAN_RAW, CAN_RAW_FILTER, &filter, sizeof(filter));
-//    if (rc < 0) {
-//        LEDDAR_VU8_LOG_ERROR(
-//            "set socket filter failed w/ errno " << errno << " - " << strerror(errno)
-//        );
-//        goto cleanup;
-//    }
+    filter[0].can_id = base_tx_message_id_ + 1;
+    filter[0].can_mask = can_mask(
+        base_tx_message_id_ + 1,
+        base_tx_message_id_ + 1 + max_detections_
+    );
+    rc = setsockopt(sock, SOL_CAN_RAW, CAN_RAW_FILTER, &filter, sizeof(filter));
+    if (rc < 0) {
+        LEDDAR_VU8_LOG_ERROR(
+            "set socket filter failed w/ errno " << errno << " - " << strerror(errno)
+        );
+        goto cleanup;
+    }
+    LEDDAR_VU8_LOG_INFO(
+        "set socket filter w/ can_id=0x" << std::hex << filter[0].can_id << ", mask=0x" << std::hex << filter[0].can_mask
+    );
 
     // notify event
     notify = eventfd(0, 0);
@@ -511,6 +518,9 @@ bool Sensor::Connect() {
         );
         goto cleanup;
     }
+    LEDDAR_VU8_LOG_INFO(
+        "set socket filter w/ can_id=0x" << std::hex << filter[0].can_id << ", mask=0x" << std::hex << filter[0].can_mask
+    );
 
     // yay!
     sock_ = sock;
