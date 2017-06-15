@@ -1,6 +1,9 @@
+#include <string>
+#include <vector>
+
 #include <angles/angles.h>
 
-#include "node.h"
+#include "./node.h"
 
 Node::Node(ros::NodeHandle nh):
     nh_(nh)
@@ -112,7 +115,7 @@ bool Node::Initialize() {
     }
 
     // load sensor config
-    if (!config.Load()) {
+    if (!config.Load(retry_)) {
         return false;
     }
 
@@ -135,22 +138,25 @@ void Node::Close() {
 
 bool Node::StreamForever() {
     struct ContinuousDetectionsGuard {
-        ContinuousDetectionsGuard(leddar_vu8::Sensor &sensor) :
-            sensor(sensor) {
+        ContinuousDetectionsGuard(
+                leddar_vu8::Sensor &sensor,
+                unsigned int retry = 0) :
+            sensor(sensor), retry(retry) {
         }
 
         ~ContinuousDetectionsGuard() {
-            sensor.StopStream();
+            sensor.StopStream(retry);
         }
 
         leddar_vu8::Sensor &sensor;
+        unsigned int retry;
     };
 
     // continuous
-    if (!sensor_.StartStream()) {
+    if (!sensor_.StartStream(retry_)) {
         return false;
     }
-    ContinuousDetectionsGuard guard(sensor_);
+    ContinuousDetectionsGuard guard(sensor_, retry_);
 
     // listen for continuous
     unsigned int seq = 0;
@@ -197,7 +203,7 @@ void Node::ToLaserScan(
 
     // detections
     scan.ranges.resize(count);
-    for(size_t i = 0; i != count; i += 1) {
+    for (size_t i = 0; i != count; i += 1) {
         scan.ranges[i] = echos[i].distance * distance_scale;
     }
 }
@@ -223,7 +229,11 @@ void Node::Reconfig(leddar_vu8::LeddarVu8Config &config, uint32_t level) {
     c.overshoot_management_enabled(config.overshoot_management_enabled);
 
     ROS_INFO("saving changes");
-    c.Save();
+    if (!c.Save(retry_)) {
+        ROS_ERROR("save changes failed, exiting");
+        sensor_.StopStream(retry_);
+        sensor_.Disconnect();
+    }
 
     ROS_INFO("reconfigured");
 }

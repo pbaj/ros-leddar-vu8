@@ -8,6 +8,7 @@ find_package(catkin REQUIRED COMPONENTS
   std_msgs
   sensor_msgs
   dynamic_reconfigure
+  roslint
 )
 
 generate_dynamic_reconfigure_options(cfg/Config.cfg)
@@ -33,6 +34,14 @@ target_link_libraries(
     leddar_vu8
     ${catkin_LIBRARIES}
     dl
+)
+
+roslint_cpp(
+    src/main.cpp
+    src/node.cpp
+    src/node.h
+    src/leddar_vu8.cpp
+    src/leddar_vu8.h
 )
 
 install(FILES

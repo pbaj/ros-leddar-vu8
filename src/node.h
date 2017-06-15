@@ -1,5 +1,8 @@
-#ifndef __NODE_H__
-#define __NODE_H__
+#ifndef SRC_NODE_H
+#define SRC_NODE_H
+
+#include <string>
+#include <vector>
 
 #include <dynamic_reconfigure/server.h>
 #include <ros/ros.h>
@@ -8,11 +11,11 @@
 
 #include <leddar_vu8/LeddarVu8Config.h>
 
-#include "leddar_vu8.h"
+#include "./leddar_vu8.h"
 
 class Node {
 public:
-    Node(ros::NodeHandle nh);
+    explicit Node(ros::NodeHandle nh);
     ~Node();
 
     bool Initialize();
@@ -22,8 +25,7 @@ public:
 private:
     void ToLaserScan(
         const std::vector<leddar_vu8::Echo> &echoes,
-        sensor_msgs::LaserScan& scan
-    );
+        sensor_msgs::LaserScan& scan);
     void Reconfig(leddar_vu8::LeddarVu8Config &config, uint32_t level);
 
     ros::NodeHandle nh_;
@@ -35,7 +37,8 @@ private:
     double min_range_ = 0;
     double max_range_ = 20;
     double listen_timeout_ = 1.0;
+    unsigned int retry_ = 3;
     dynamic_reconfigure::Server<leddar_vu8::LeddarVu8Config> reconfig_;
 };
 
-#endif // __NODE_H__
+#endif  // SRC_NODE_H

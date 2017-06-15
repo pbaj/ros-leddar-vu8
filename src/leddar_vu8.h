@@ -1,5 +1,5 @@
-#ifndef __LEDDAR_VU8_H__
-#define __LEDDAR_VU8_H__
+#ifndef SRC_LEDDAR_VU8_H
+#define SRC_LEDDAR_VU8_H
 
 #include <condition_variable>
 #include <mutex>
@@ -31,14 +31,13 @@ void log(
  * Represents a single detection reported by `Sensor`.
  */
 struct Echo {
-
     void from_data(const uint8_t (&data)[8]);
 
-    unsigned int distance;      //< Distance of detection (scale by `1.0/Config::distance_resolution()` distance_resolution).
+    unsigned int distance;      //< Distance of detection (scale by `1.0/Config::distance_resolution()`).
     double amplitude;           //< Amplitude of detection.
     unsigned segment_number;    //< Number of segment of detection
-    bool object_demerging;      //< Whether the detection was the result of an object de-merging operation.
-    bool saturated;             //< Whether the detection exceeds saturation threshold (see `Config::saturation_count()`).
+    bool object_demerging;      //< Whether detection was the result of an object de-merging operation.
+    bool saturated;             //< Whether detection exceeds saturation threshold (see `Config::saturation_count()`).
 };
 
 class Sensor;
@@ -48,11 +47,11 @@ class Sensor;
  */
 class Config {
 public:
-    Config(Sensor &sensor);
+    explicit Config(Sensor &sensor);
 
-    bool Load();
+    bool Load(unsigned int retry = 0);
 
-    bool Save();
+    bool Save(unsigned int retry = 0);
 
     uint8_t accumulation_exponent() const;
 
@@ -221,12 +220,12 @@ public:
     /**
      * Start streaming detections continuously as they become available.
      */
-    bool StartStream();
+    bool StartStream(unsigned int retry = 0);
 
     /**
      * Stop streaming detections continuously.
      */
-    bool StopStream();
+    bool StopStream(unsigned int retry = 0);
 
     /**
      * Listen for streaming detections.
@@ -242,7 +241,7 @@ private:
 };
 
 /**
- * Stream that listens for continuous detection.
+ * Stream that listens for continuous detections from `Sensor`.
  */
 class Stream {
 public:
@@ -250,8 +249,7 @@ public:
         const std::string &interface,
         double timeout,
         unsigned int base_tx_message_id,
-        unsigned int max_detections
-    );
+        unsigned int max_detections);
 
     Stream(const Stream &stream);
 
@@ -285,6 +283,6 @@ private:
     std::vector<Echo> echos_;
 };
 
-} // leddar_vu8
+}  // namespace leddar_vu8
 
-#endif // __LEDDAR_VU8_H__
+#endif  // SRC_LEDDAR_VU8_H

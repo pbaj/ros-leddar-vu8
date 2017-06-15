@@ -1,7 +1,7 @@
 #include <sstream>
 
-#include "leddar_vu8.h"
-#include "node.h"
+#include "./leddar_vu8.h"
+#include "./node.h"
 
 namespace leddar_vu8 {
 
@@ -12,9 +12,7 @@ void log(
     const char* function,
     const std::stringstream &msg
 ) {
-    ROSCONSOLE_DEFINE_LOCATION(
-        true, ros::console::levels::Debug, ROSCONSOLE_DEFAULT_NAME
-    );
+    ROSCONSOLE_DEFINE_LOCATION(true, ros::console::levels::Debug, ROSCONSOLE_DEFAULT_NAME);
     ros::console::levels::Level ros_level;
     switch (level) {
         case leddar_vu8::kLogLevelDebug:
@@ -31,18 +29,10 @@ void log(
             ros_level = ros::console::levels::Error;
             break;
     }
-    ros::console::print(
-        NULL,
-        __rosconsole_define_location__loc.logger_,
-        ros_level,
-        msg,
-        file,
-        line,
-        function
-    );
+    ros::console::print(NULL, __rosconsole_define_location__loc.logger_, ros_level, msg, file, line, function);
 }
 
-}
+}  // namespace leddar_vu8
 
 int main(int argc, char** argv) {
     ros::init(argc, argv, "leddar_vu8");

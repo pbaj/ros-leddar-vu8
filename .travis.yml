@@ -25,6 +25,7 @@ before_install:
   - source /opt/ros/$ROS_DISTRO/setup.bash
   - sudo rosdep init
   - rosdep update
+  - sudo pip install ccplint
 
 install:
   # create catkin workspace
@@ -51,3 +52,4 @@ script:
   # tests
   - source devel/setup.bash
   - catkin_make run_tests && catkin_test_results
+  - catkin_make roslint_leddar_vu8
