@@ -25,7 +25,6 @@ before_install:
   - source /opt/ros/$ROS_DISTRO/setup.bash
   - sudo rosdep init
   - rosdep update
-  - sudo pip install ccplint
 
 install:
   # create catkin workspace
