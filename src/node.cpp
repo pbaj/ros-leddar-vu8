@@ -1,3 +1,4 @@
+#include <limits>
 #include <string>
 #include <vector>
 
@@ -195,8 +196,10 @@ void Node::ToLaserScan(
     const std::vector<leddar_vu8::Echo>& echos,
     sensor_msgs::LaserScan& scan
 ) {
+    const auto inf = std::numeric_limits<float>::infinity();
     const auto count = echos.size();
     const float distance_scale = 1.0 / sensor_.config().distance_resolution();
+    const auto segment_count = sensor_.config().segment_count();
 
     scan.header.frame_id = frame_id_;
     scan.header.stamp = ros::Time::now();
@@ -209,9 +212,16 @@ void Node::ToLaserScan(
     scan.range_max = max_range_;
 
     // detections
-    scan.ranges.resize(count);
-    for (size_t i = 0; i != count; i += 1) {
-        scan.ranges[i] = echos[i].distance * distance_scale;
+    // TODO(me): intensities
+    const size_t detection_count = echos.size();
+    scan.ranges.resize(segment_count);
+    for (size_t i = 0, j = 0; i != segment_count; i += 1) {
+        if (j == detection_count || echos[j].segment_number != i) {
+            scan.ranges[i] = inf;
+        } else {
+            scan.ranges[i] = echos[j].distance * distance_scale;
+            j += 1;
+        }
     }
 }
 

@@ -53,6 +53,8 @@ public:
 
     bool Save(unsigned int retry = 0);
 
+    uint16_t segment_count() const;
+
     uint8_t accumulation_exponent() const;
 
     void accumulation_exponent(uint8_t value);
@@ -164,6 +166,7 @@ public:
 private:
     Sensor &sensor_;
 
+    uint16_t segment_count_ = 8;
     uint8_t accumulation_exponent_ = 0;
     uint8_t oversampling_exponent_ = 0;
     uint8_t base_samples_ = 0;

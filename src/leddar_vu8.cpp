@@ -109,8 +109,8 @@ static bool send_and_recv_can_data(
     unsigned int remaining = 1 + retries;
 
     while (remaining != 0) {
-        if (retries != 0 && remaining != 1) {
-            LOG_INFO("retry " << retries + 2 - remaining << "/" << retries << " rx_message_id=" << rx_message_id <<
+        if (retries != 0 && remaining != retries + 1) {
+            LOG_INFO("retry " << retries + 1 - remaining << "/" << retries << " rx_message_id=" << rx_message_id <<
                     " tx_message_id=" << tx_message_id);
         }
 
@@ -162,8 +162,8 @@ static bool send_and_echo_can_data(
     unsigned int remaining = 1 + retries;
 
     while (remaining != 0) {
-        if (retries != 0 && remaining != 1) {
-            LOG_INFO("retry " << retries + 2 - remaining << "/" << retries << " rx_message_id=" << rx_message_id <<
+        if (retries != 0 && remaining != retries + 1) {
+            LOG_INFO("retry " << retries + 1 - remaining << "/" << retries << " rx_message_id=" << rx_message_id <<
                     " tx_message_id=" << tx_message_id);
         }
 
@@ -449,6 +449,9 @@ void Stream::Listen() {
                     echos[detection_i].from_data(data);
                     detection_i += 1;
                     if (detection_i == detection_count) {
+                        std::sort(echos.begin(), echos.end(), [](const Echo& a, const Echo& b) {
+                            return a.segment_number < b.segment_number;
+                        });
                         LockGuard guard(echos_mtx_);
                         std::swap(echos_, echos);
                         seq_ += 1;
@@ -659,6 +662,22 @@ Config::Config(Sensor &sensor) :
 bool Config::Load(unsigned int retry) {
     uint8_t req[8];
     uint8_t ans[8];
+
+    // acquisition configuration
+    memset(req, 0, 8);
+    req[0] = 4;
+    req[1] = 0;
+    if (!send_and_recv_can_data(
+            sensor_.sock(),
+            base_rx_message_id_,
+            req,
+            base_tx_message_id_,
+            ans,
+            retry)) {
+        return false;
+    }
+    segment_count_ = TO_UINT16(ans[2], ans[3]);
+    LOG_INFO("loaded segment_count=" << segment_count_);
 
     // acquisition configuration
     memset(req, 0, 8);
@@ -927,6 +946,10 @@ bool Config::Save(unsigned int retry) {
     }
 
     return true;
+}
+
+uint16_t Config::segment_count() const {
+    return segment_count_;
 }
 
 uint8_t Config::accumulation_exponent() const {
