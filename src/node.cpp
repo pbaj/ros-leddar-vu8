@@ -114,6 +114,12 @@ bool Node::Initialize() {
         return false;
     }
 
+    // stop streaming
+    if (!sensor_.StopStream(retry_)) {
+        ROS_ERROR("stop sensor streaming failed");
+        return false;
+    }
+
     // load sensor config
     if (!config.Load(retry_)) {
         return false;
@@ -138,25 +144,26 @@ void Node::Close() {
 
 bool Node::StreamForever() {
     struct ContinuousDetectionsGuard {
-        ContinuousDetectionsGuard(
-                leddar_vu8::Sensor &sensor,
-                unsigned int retry = 0) :
-            sensor(sensor), retry(retry) {
+        ContinuousDetectionsGuard(Node &node) : node(node) {
+            node.continuous_ = true;
         }
 
         ~ContinuousDetectionsGuard() {
-            sensor.StopStream(retry);
+            node.continuous_ = false;
+            if (!node.sensor_.StopStream(node.retry_)) {
+                ROS_ERROR("stop sensor streaming failed");
+            }
         }
 
-        leddar_vu8::Sensor &sensor;
-        unsigned int retry;
+        Node &node;
     };
 
     // continuous
     if (!sensor_.StartStream(retry_)) {
+        ROS_ERROR("start sensor streaming failed");
         return false;
     }
-    ContinuousDetectionsGuard guard(sensor_, retry_);
+    ContinuousDetectionsGuard guard(*this);
 
     // listen for continuous
     unsigned int seq = 0;
@@ -211,6 +218,12 @@ void Node::ToLaserScan(
 void Node::Reconfig(leddar_vu8::LeddarVu8Config &config, uint32_t level) {
     ROS_INFO("reconfigure ...");
 
+    // stop streaming
+    if (!sensor_.StopStream(retry_)) {
+        ROS_ERROR("stop sensor streaming failed");
+        return;
+    }
+
     leddar_vu8::Config &c = sensor_.config();
 
     c.accumulation_exponent(config.accumulation_exponent);
@@ -233,6 +246,15 @@ void Node::Reconfig(leddar_vu8::LeddarVu8Config &config, uint32_t level) {
         ROS_ERROR("save changes failed, exiting");
         sensor_.StopStream(retry_);
         sensor_.Disconnect();
+    }
+
+    // restore streaming
+    if (continuous_) {
+        if (!sensor_.StartStream(retry_)) {
+            ROS_ERROR("start sensor streaming failed");
+            sensor_.Disconnect();
+            return;
+        }
     }
 
     ROS_INFO("reconfigured");

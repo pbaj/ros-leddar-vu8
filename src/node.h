@@ -38,6 +38,7 @@ private:
     double max_range_ = 20;
     double listen_timeout_ = 1.0;
     unsigned int retry_ = 3;
+    bool continuous_ = false;
     dynamic_reconfigure::Server<leddar_vu8::LeddarVu8Config> reconfig_;
 };
 
