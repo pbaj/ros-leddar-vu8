@@ -110,7 +110,7 @@ static bool send_and_recv_can_data(
 
     while (remaining != 0) {
         if (retries != 0 && remaining != 1) {
-            LOG_INFO("retry " << retries - remaining + 1 << "/" << retries << " rx_message_id=" << rx_message_id <<
+            LOG_INFO("retry " << retries + 2 - remaining << "/" << retries << " rx_message_id=" << rx_message_id <<
                     " tx_message_id=" << tx_message_id);
         }
 
@@ -163,7 +163,7 @@ static bool send_and_echo_can_data(
 
     while (remaining != 0) {
         if (retries != 0 && remaining != 1) {
-            LOG_INFO("retry " << retries - remaining - 1 << "/" << retries << " rx_message_id=" << rx_message_id <<
+            LOG_INFO("retry " << retries + 2 - remaining << "/" << retries << " rx_message_id=" << rx_message_id <<
                     " tx_message_id=" << tx_message_id);
         }
 

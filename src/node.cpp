@@ -144,7 +144,7 @@ void Node::Close() {
 
 bool Node::StreamForever() {
     struct ContinuousDetectionsGuard {
-        ContinuousDetectionsGuard(Node &node) : node(node) {
+        explicit ContinuousDetectionsGuard(Node &node) : node(node) {
             node.continuous_ = true;
         }
 
