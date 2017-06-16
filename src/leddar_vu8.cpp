@@ -144,10 +144,10 @@ static bool send_and_recv_can_data(
         }
 
         // success
-        break;
+        return true;
     }
 
-    return true;
+    return false;
 }
 
 
@@ -192,10 +192,10 @@ static bool send_and_echo_can_data(
         }
 
         // success
-        break;
+        return true;
     }
 
-    return true;
+    return false;
 }
 
 static canid_t can_mask(canid_t b, canid_t e) {

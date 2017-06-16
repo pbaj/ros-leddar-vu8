@@ -207,7 +207,7 @@ void Node::ToLaserScan(
     // field of view
     scan.angle_min = angles::from_degrees(-field_of_view_ / 2.0);
     scan.angle_max = angles::from_degrees(field_of_view_ / 2.0);
-    scan.angle_increment = angles::from_degrees(field_of_view_ / count);
+    scan.angle_increment = angles::from_degrees(field_of_view_ / segment_count);
     scan.range_min = min_range_;
     scan.range_max = max_range_;
 
