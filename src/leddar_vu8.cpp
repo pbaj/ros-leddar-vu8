@@ -443,12 +443,19 @@ void Stream::Listen() {
                 detection_count = data[0];
                 detection_i = 0;
                 echos.resize(detection_count);
+                if (detection_count == 0) {
+                    // no detections
+                    LockGuard guard(echos_mtx_);
+                    std::swap(echos_, echos);
+                    seq_ += 1;
+                }
             } else if (message_id > base_tx_message_id_ + 1){
                 // detection
                 if (detection_i < detection_count) {
                     echos[detection_i].from_data(data);
                     detection_i += 1;
                     if (detection_i == detection_count) {
+                        // last detection
                         std::sort(echos.begin(), echos.end(), [](const Echo& a, const Echo& b) {
                             return a.segment_number < b.segment_number;
                         });
