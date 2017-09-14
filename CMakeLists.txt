@@ -11,7 +11,7 @@ find_package(catkin REQUIRED COMPONENTS
   roslint
 )
 
-generate_dynamic_reconfigure_options(cfg/Config.cfg)
+generate_dynamic_reconfigure_options(cfg/LeddarVu8.cfg)
 
 catkin_package()
 

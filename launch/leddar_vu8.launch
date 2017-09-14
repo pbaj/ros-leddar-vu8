@@ -9,8 +9,8 @@
     <arg name="base_rx_message_id" default="1856"/>
     <arg name="base_tx_message_id" default="1872"/>
     <arg name="scan" default="/leddar_vu8/scan"/>
-    <arg name="send_timeout" default="0.0"/>
-    <arg name="receive_timeout" default="0.0"/>
+    <arg name="send_timeout" default="10.0"/>
+    <arg name="receive_timeout" default="10.0"/>
     <arg name="respawn" default="false"/>
     <arg name="view" default="true"/>
     <arg name="name" default="leddar_vu8"/>

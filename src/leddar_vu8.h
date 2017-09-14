@@ -1,6 +1,7 @@
 #ifndef SRC_LEDDAR_VU8_H
 #define SRC_LEDDAR_VU8_H
 
+#include <bitset>
 #include <condition_variable>
 #include <mutex>
 #include <thread>
@@ -51,7 +52,7 @@ public:
 
     bool Load(unsigned int retry = 0);
 
-    bool Save(unsigned int retry = 0);
+    bool Save(unsigned int retry = 0, bool force = false);
 
     uint16_t segment_count() const;
 
@@ -185,6 +186,29 @@ private:
     uint16_t inter_message_delay_ = 0;
     uint16_t inter_cycle_delay_ = 0;
     uint32_t enabled_segments_ = 0;
+
+    enum Index {
+        kIndexSegmentCount = 0,
+        kIndexAccumulationExponent,
+        kIndexOversamplingExponent,
+        kIndexBaseSamples,
+        kIndexSmoothing,
+        kIndexDetectionThreshold,
+        kIndexLightSourcePowerPercent,
+        kIndexSaturationCount,
+        kIndexAutoLightSourcePower,
+        kIndexDistanceResolution,
+        kIndexAcquisitionOptions,
+        kIndexBaudRate,
+        kIndexFrameFormat,
+        kIndexMaxDetections,
+        kIndexInterMessageDelay,
+        kIndexInterCycleDelay,
+        kIndexEnabledSegments,
+        kIndexMax
+    };
+
+    std::bitset<kIndexMax> dirty_;
 };
 
 class Stream;
