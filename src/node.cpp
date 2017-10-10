@@ -85,7 +85,6 @@ bool Node::Initialize() {
     }
     ROS_INFO_STREAM("frame_id=" << frame_id_);
 
-
     // config
     ROS_INFO("loading sensor config");
     leddar_vu8::Config &config = sensor_.config();
@@ -139,32 +138,17 @@ bool Node::Initialize() {
 }
 
 void Node::Close() {
+    sensor_.StopStream();
     sensor_.Disconnect();
     scan_pub_.shutdown();
 }
 
 bool Node::StreamForever() {
-    struct ContinuousDetectionsGuard {
-        explicit ContinuousDetectionsGuard(Node &node) : node(node) {
-            node.continuous_ = true;
-        }
-
-        ~ContinuousDetectionsGuard() {
-            node.continuous_ = false;
-            if (!node.sensor_.StopStream(node.retry_)) {
-                ROS_ERROR("stop sensor streaming failed");
-            }
-        }
-
-        Node &node;
-    };
-
     // continuous
-    if (!sensor_.StartStream(retry_)) {
+    if (continuous_ && !sensor_.StartStream(retry_)) {
         ROS_ERROR("start sensor streaming failed");
         return false;
     }
-    ContinuousDetectionsGuard guard(*this);
 
     // listen for continuous
     unsigned int seq = 0;
@@ -177,11 +161,13 @@ bool Node::StreamForever() {
     // poll detection -> scan @ rate
     sensor_msgs::LaserScan scan;
     ros::Rate rate(rate_);
-    while (!ros::isShuttingDown() && stream.is_listening()) {
-        if (stream.sequence() != seq) {
-            stream.last(seq, echos);
-            ToLaserScan(echos, scan);
-            scan_pub_.publish(scan);
+    while (!ros::isShuttingDown()) {
+        if (continuous_ && stream.is_listening()) {
+            if (stream.sequence() != seq) {
+                stream.last(seq, echos);
+                ToLaserScan(echos, scan);
+                scan_pub_.publish(scan);
+            }
         }
         ros::spinOnce();
         rate.sleep();
@@ -236,6 +222,7 @@ void Node::Reconfig(leddar_vu8::LeddarVu8Config &config, uint32_t level) {
 
     leddar_vu8::Config &c = sensor_.config();
 
+    continuous_ = config.stream;
     c.accumulation_exponent(config.accumulation_exponent);
     c.oversampling_exponent(config.oversampling_exponent);
     c.base_samples(config.base_samples);
@@ -252,7 +239,7 @@ void Node::Reconfig(leddar_vu8::LeddarVu8Config &config, uint32_t level) {
     c.overshoot_management_enabled(config.overshoot_management_enabled);
 
     ROS_INFO("saving changes");
-    if (!c.Save(retry_)) {
+    if (!c.Save(retry_, false)) {
         ROS_ERROR("save changes failed, exiting");
         sensor_.StopStream(retry_);
         sensor_.Disconnect();

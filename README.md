@@ -58,7 +58,7 @@ you can define when starting the driver:
 * `stream_timeout` socket receive timeout when streaming detections, defaults to `0` (i.e. no timeout).
 * `min_range` minimum detection distance in meters, defaults to `0` (i.e. no minimum).
 * `max_range` maximum detection distance in meters, defaults to `20`.
-* `fov` detection field-of-view in degrees, defaults to `100
+* `fov` detection field-of-view in degrees, defaults to `100`.
 * `rate` frequency at which to publish detection scans in hertz, defaults to `50`.
 * `frame_id` name of the [tf](http://wiki.ros.org/tf) frame to use when publishing detection scans, defaults to `laser`.
 * `base_rx_message_id` base id of CAN messages sent to sensor, defaults to `0x740`.

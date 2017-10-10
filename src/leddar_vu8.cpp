@@ -103,7 +103,8 @@ static bool send_and_recv_can_data(
         const uint8_t (&request)[8],
         uint32_t tx_message_id,
         uint8_t (&answer)[8],
-        unsigned int retries = 0) {
+        unsigned int retries = 0,
+        unsigned int echo = 1) {
     static uint8_t error[] = { 0xff, 0xff, 0xff, 0xff, 0xff, 0xff };
     uint32_t message_id;
     unsigned int remaining = 1 + retries;
@@ -121,22 +122,34 @@ static bool send_and_recv_can_data(
         }
 
         // recv answer
-        if (!recv_can_data(sock, message_id, answer)) {
+        bool valid = false;
+        while (true) {
+            // answer
+            if (!recv_can_data(sock, message_id, answer)) {
+                break;
+            }
+
+            // validate
+            if (message_id != tx_message_id) {
+                LOG_INFO("recv'd answer can message id " << message_id << " != expected " << tx_message_id);
+                continue;
+            }
+            if (echo != 0) {
+                if (memcmp(request, answer, echo) != 0) {
+                    LOG_INFO("sensor answer[0:" << echo - 1 << "] != request[0:" << echo - 1 << "]");
+                    continue;
+                }
+            }
+            valid = true;
+
+            // ok
+            break;
+        }
+        if (!valid) {
             remaining -= 1;
             continue;
         }
 
-        // validate answer
-        if (message_id != tx_message_id) {
-            LOG_INFO("recv'd answer can message id " << message_id << " != expected " << tx_message_id);
-            remaining -= 1;
-            continue;
-        }
-        if (answer[0] != request[0]) {
-            LOG_ERROR("sensor answer[0] " << answer[0] << " != request[1] " << request[1]);
-            remaining -= 1;
-            continue;
-        }
         if (memcmp(answer + 2, error, 6) == 0) {
             LOG_ERROR("sensor answer = error");
             remaining -= 1;
@@ -535,7 +548,7 @@ bool Sensor::Connect() {
         LOG_INFO("set socket recv timeout to " << recv_timeout_);
     }
 
-    // bind the socket;
+    // bind the socket
     struct ifreq ifr;
     if (interface_.size() + 1 > IF_NAMESIZE) {
         LOG_ERROR("interface " << interface_ << " length > " << IF_NAMESIZE);
@@ -680,7 +693,8 @@ bool Config::Load(unsigned int retry) {
             req,
             base_tx_message_id_,
             ans,
-            retry)) {
+            retry,
+            2)) {
         return false;
     }
     segment_count_ = TO_UINT16(ans[2], ans[3]);
@@ -696,7 +710,8 @@ bool Config::Load(unsigned int retry) {
             req,
             base_tx_message_id_,
             ans,
-            retry)) {
+            retry,
+            2)) {
         return false;
     }
     accumulation_exponent_ = ans[2];
@@ -716,7 +731,8 @@ bool Config::Load(unsigned int retry) {
             req,
             base_tx_message_id_,
             ans,
-            retry)) {
+            retry,
+            2)) {
         return false;
     }
     smoothing_ = ans[2];
@@ -734,7 +750,8 @@ bool Config::Load(unsigned int retry) {
             req,
             base_tx_message_id_,
             ans,
-            retry)) {
+            retry,
+            2)) {
         return false;
     }
     light_source_power_percent_ = ans[2];
@@ -754,7 +771,8 @@ bool Config::Load(unsigned int retry) {
             req,
             base_tx_message_id_,
             ans,
-            retry)) {
+            retry,
+            2)) {
         return false;
     }
     distance_resolution_ = TO_UINT16(ans[2], ans[3]);
@@ -778,7 +796,8 @@ bool Config::Load(unsigned int retry) {
             req,
             base_tx_message_id_,
             ans,
-            retry)) {
+            retry,
+            2)) {
         return false;
     }
     baud_rate_ = (BaudRate) ans[2];
@@ -796,7 +815,8 @@ bool Config::Load(unsigned int retry) {
             req,
             base_tx_message_id_,
             ans,
-            retry)) {
+            retry,
+            2)) {
         return false;
     }
     base_rx_message_id_ = TO_UINT32(ans[4], ans[5], ans[6], ans[7]);
@@ -810,7 +830,8 @@ bool Config::Load(unsigned int retry) {
             req,
             base_tx_message_id_,
             ans,
-            retry)) {
+            retry,
+            2)) {
         return false;
     }
     max_detections_ = ans[3];
@@ -830,7 +851,8 @@ bool Config::Load(unsigned int retry) {
             req,
             base_tx_message_id_,
             ans,
-            retry)) {
+            retry,
+            2)) {
         return false;
     }
     enabled_segments_ = TO_UINT32(ans[4], ans[5], ans[6], ans[7]);
@@ -839,117 +861,161 @@ bool Config::Load(unsigned int retry) {
     return true;
 }
 
-bool Config::Save(unsigned int retry) {
+bool Config::Save(unsigned int retry, bool force) {
+    if (!force && dirty_.none()) {
+        return true;
+    }
+
     uint8_t req[8];
 
     // acquisition configuration
-    memset(req, 0, 8);
-    req[0] = 6;
-    req[1] = 0;
-    req[2] = accumulation_exponent_;
-    LOG_INFO("saving accumulation_exponent=" << unsigned(accumulation_exponent_));
-    req[3] = oversampling_exponent_;
-    LOG_INFO("saving oversampling_exponent=" << unsigned(oversampling_exponent_));
-    req[4] = base_samples_;
-    LOG_INFO("saving base_samples=" << unsigned(base_samples_));
-    if (!send_and_echo_can_data(
-            sensor_.sock(),
-            base_rx_message_id_,
-            req,
-            base_tx_message_id_,
-            retry)) {
-        return false;
+    if (force ||
+            dirty_[kIndexAccumulationExponent] ||
+            dirty_[kIndexOversamplingExponent] ||
+            dirty_[kIndexBaseSamples]) {
+        memset(req, 0, 8);
+        req[0] = 6;
+        req[1] = 0;
+        req[2] = accumulation_exponent_;
+        LOG_INFO("saving accumulation_exponent=" << unsigned(accumulation_exponent_));
+        req[3] = oversampling_exponent_;
+        LOG_INFO("saving oversampling_exponent=" << unsigned(oversampling_exponent_));
+        req[4] = base_samples_;
+        LOG_INFO("saving base_samples=" << unsigned(base_samples_));
+        if (!send_and_echo_can_data(
+                sensor_.sock(),
+                base_rx_message_id_,
+                req,
+                base_tx_message_id_,
+                retry)) {
+            return false;
+        }
+        dirty_[kIndexAccumulationExponent] = false;
+        dirty_[kIndexOversamplingExponent] = false;
+        dirty_[kIndexBaseSamples] = false;
     }
 
     // smoothing and detection threshold
-    memset(req, 0, 8);
-    req[0] = 6;
-    req[1] = 1;
-    req[2] = smoothing_;
-    LOG_INFO("saving smoothing=" << signed(smoothing_));
-    FROM_UINT32(detection_threshold_, req[4], req[5], req[6], req[7]);
-    LOG_INFO("saving detection_threshold=" << detection_threshold_);
-    if (!send_and_echo_can_data(
-            sensor_.sock(),
-            base_rx_message_id_,
-            req,
-            base_tx_message_id_,
-            retry)) {
-        return false;
+    if (force ||
+            dirty_[kIndexSmoothing] ||
+            dirty_[kIndexDetectionThreshold]) {
+        memset(req, 0, 8);
+        req[0] = 6;
+        req[1] = 1;
+        req[2] = smoothing_;
+        LOG_INFO("saving smoothing=" << signed(smoothing_));
+        FROM_UINT32(detection_threshold_, req[4], req[5], req[6], req[7]);
+        LOG_INFO("saving detection_threshold=" << detection_threshold_);
+        if (!send_and_echo_can_data(
+                sensor_.sock(),
+                base_rx_message_id_,
+                req,
+                base_tx_message_id_,
+                retry)) {
+            return false;
+        }
+        dirty_[kIndexSmoothing] = false;
+        dirty_[kIndexDetectionThreshold] = false;
     }
 
     // light source power management
-    memset(req, 0, 8);
-    req[0] = 6;
-    req[1] = 2;
-    req[2] = light_source_power_percent_;
-    LOG_INFO("saving light_source_power_percent=" << light_source_power_percent_);
-    req[3] = saturation_count_;
-    LOG_INFO("saving saturation_count=" << unsigned(saturation_count_));
-    FROM_UINT16(auto_light_source_power_, req[4], req[5]);
-    if (!send_and_echo_can_data(
-            sensor_.sock(),
-            base_rx_message_id_,
-            req,
-            base_tx_message_id_,
-            retry)) {
-        return false;
+    if (force ||
+            dirty_[kIndexLightSourcePowerPercent] ||
+            dirty_[kIndexSaturationCount] ||
+            dirty_[kIndexAutoLightSourcePower]) {
+        memset(req, 0, 8);
+        req[0] = 6;
+        req[1] = 2;
+        req[2] = light_source_power_percent_;
+        LOG_INFO("saving light_source_power_percent=" << light_source_power_percent_);
+        req[3] = saturation_count_;
+        LOG_INFO("saving saturation_count=" << unsigned(saturation_count_));
+        FROM_UINT16(auto_light_source_power_, req[4], req[5]);
+        if (!send_and_echo_can_data(
+                sensor_.sock(),
+                base_rx_message_id_,
+                req,
+                base_tx_message_id_,
+                retry)) {
+            return false;
+        }
+        dirty_[kIndexLightSourcePowerPercent] = false;
+        dirty_[kIndexSaturationCount] = false;
+        dirty_[kIndexAutoLightSourcePower] = false;
     }
 
     // distance resolution and acquisition options
-    memset(req, 0, 8);
-    req[0] = 6;
-    req[1] = 3;
-    FROM_UINT16(distance_resolution_, req[2], req[3]);
-    LOG_INFO("saving distance_resolution=" << distance_resolution_);
-    FROM_UINT16(acquisition_options_, req[4], req[5]);
-    LOG_INFO("saving auto_light_source_power_enabled=" << auto_light_source_power_enabled());
-    LOG_INFO("saving demerge_object_enabled=" << demerge_object_enabled());
-    LOG_INFO("saving static_noise_removal_enabled=" << static_noise_removal_enabled());
-    LOG_INFO("saving precision_enabled=" << precision_enabled());
-    LOG_INFO("saving saturation_compenstation_enabled=" << saturation_compenstation_enabled());
-    LOG_INFO("saving overshoot_management_enabled=" << overshoot_management_enabled());
-    if (!send_and_echo_can_data(
-            sensor_.sock(),
-            base_rx_message_id_,
-            req,
-            base_tx_message_id_,
-            retry)) {
-        return false;
+    if (force ||
+            dirty_[kIndexDistanceResolution] ||
+            dirty_[kIndexAcquisitionOptions]) {
+        memset(req, 0, 8);
+        req[0] = 6;
+        req[1] = 3;
+        FROM_UINT16(distance_resolution_, req[2], req[3]);
+        LOG_INFO("saving distance_resolution=" << distance_resolution_);
+        FROM_UINT16(acquisition_options_, req[4], req[5]);
+        LOG_INFO("saving auto_light_source_power_enabled=" << auto_light_source_power_enabled());
+        LOG_INFO("saving demerge_object_enabled=" << demerge_object_enabled());
+        LOG_INFO("saving static_noise_removal_enabled=" << static_noise_removal_enabled());
+        LOG_INFO("saving precision_enabled=" << precision_enabled());
+        LOG_INFO("saving saturation_compenstation_enabled=" << saturation_compenstation_enabled());
+        LOG_INFO("saving overshoot_management_enabled=" << overshoot_management_enabled());
+        if (!send_and_echo_can_data(
+                sensor_.sock(),
+                base_rx_message_id_,
+                req,
+                base_tx_message_id_,
+                retry)) {
+            return false;
+        }
+        dirty_[kIndexDistanceResolution] = false;
+        dirty_[kIndexAcquisitionOptions] = false;
     }
 
     // can port
-    memset(req, 0, 8);
-    req[0] = 6;
-    req[1] = 6;
-    req[3] = max_detections_;
-    LOG_INFO("saving max_detections=" << unsigned(max_detections_));
-    FROM_UINT16(inter_message_delay_, req[4], req[5]);
-    LOG_INFO("saving inter_message_delay=" << inter_message_delay_);
-    FROM_UINT16(inter_cycle_delay_, req[6], req[7]);
-    LOG_INFO("saving inter_cycle_delay=" << inter_cycle_delay_);
-    if (!send_and_echo_can_data(
-            sensor_.sock(),
-            base_rx_message_id_,
-            req,
-            base_tx_message_id_,
-            retry)) {
-        return false;
+    if (force ||
+            dirty_[kIndexMaxDetections] ||
+            dirty_[kIndexInterMessageDelay] ||
+            dirty_[kIndexInterCycleDelay]) {
+        memset(req, 0, 8);
+        req[0] = 6;
+        req[1] = 6;
+        req[3] = max_detections_;
+        LOG_INFO("saving max_detections=" << unsigned(max_detections_));
+        FROM_UINT16(inter_message_delay_, req[4], req[5]);
+        LOG_INFO("saving inter_message_delay=" << inter_message_delay_);
+        FROM_UINT16(inter_cycle_delay_, req[6], req[7]);
+        LOG_INFO("saving inter_cycle_delay=" << inter_cycle_delay_);
+        if (!send_and_echo_can_data(
+                sensor_.sock(),
+                base_rx_message_id_,
+                req,
+                base_tx_message_id_,
+                retry)) {
+            return false;
+        }
+        dirty_[kIndexMaxDetections] = false;
+        dirty_[kIndexInterMessageDelay] = false;
+        dirty_[kIndexInterCycleDelay] = false;
     }
 
     // enabled segments
-    memset(req, 0, 8);
-    req[0] = 6;
-    req[1] = 8;
-    FROM_UINT32(enabled_segments_, req[4], req[5], req[6], req[7]);
-    LOG_INFO("saving enabled_segments=" << enabled_segments_);
-    if (!send_and_echo_can_data(
-            sensor_.sock(),
-            base_rx_message_id_,
-            req,
-            base_tx_message_id_,
-            retry)) {
-        return false;
+    if (force ||
+            dirty_[kIndexEnabledSegments]) {
+        memset(req, 0, 8);
+        req[0] = 6;
+        req[1] = 8;
+        FROM_UINT32(enabled_segments_, req[4], req[5], req[6], req[7]);
+        LOG_INFO("saving enabled_segments=" << enabled_segments_);
+        if (!send_and_echo_can_data(
+                sensor_.sock(),
+                base_rx_message_id_,
+                req,
+                base_tx_message_id_,
+                retry)) {
+            return false;
+        }
+        dirty_[kIndexEnabledSegments] = false;
     }
 
     return true;
@@ -964,6 +1030,9 @@ uint8_t Config::accumulation_exponent() const {
 }
 
 void Config::accumulation_exponent(uint8_t value) {
+    if (accumulation_exponent_ != value) {
+        dirty_[kIndexAccumulationExponent] = true;
+    }
     accumulation_exponent_ = value;
 }
 
@@ -972,6 +1041,9 @@ uint8_t Config::oversampling_exponent() const {
 }
 
 void Config::oversampling_exponent(uint8_t value) {
+    if (oversampling_exponent_ != value) {
+        dirty_[kIndexOversamplingExponent] = true;
+    }
     oversampling_exponent_ = value;
 }
 
@@ -980,6 +1052,9 @@ uint8_t Config::base_samples() const {
 }
 
 void Config::base_samples(uint8_t value) {
+    if (base_samples_ != value) {
+        dirty_[kIndexBaseSamples] = true;
+    }
     base_samples_ = value;
 }
 
@@ -988,10 +1063,16 @@ int8_t Config::smoothing() const {
 }
 
 void Config::smoothing(int8_t value) {
+    if (smoothing_ != value) {
+        dirty_[kIndexSmoothing] = true;
+    }
     smoothing_ = value;
 }
 
 void Config::detection_threshold(uint32_t value) {
+    if (detection_threshold_ != value) {
+        dirty_[kIndexDetectionThreshold] = true;
+    }
     detection_threshold_ = value;
 }
 
@@ -1000,6 +1081,9 @@ uint32_t Config::detection_threshold() const {
 }
 
 void Config::light_source_power_percent(uint16_t value) {
+    if (light_source_power_percent_ != value) {
+        dirty_[kIndexLightSourcePowerPercent] = true;
+    }
     light_source_power_percent_ = value;
 }
 
@@ -1008,6 +1092,9 @@ uint16_t Config::light_source_power_percent() const {
 }
 
 void Config::saturation_count(uint8_t value) {
+    if (saturation_count_ != value) {
+        dirty_[kIndexSaturationCount] = true;
+    }
     saturation_count_ = value;
 }
 
@@ -1016,6 +1103,9 @@ uint8_t Config::saturation_count() const {
 }
 
 void Config::auto_light_source_power(uint16_t value) {
+    if (auto_light_source_power_ != value) {
+        dirty_[kIndexAutoLightSourcePower] = true;
+    }
     auto_light_source_power_ = value;
 }
 
@@ -1024,6 +1114,9 @@ uint16_t Config::auto_light_source_power() const {
 }
 
 void Config::distance_resolution(uint16_t value) {
+    if (distance_resolution_ != value) {
+        dirty_[kIndexDistanceResolution] = true;
+    }
     distance_resolution_ = value;
 }
 
@@ -1036,6 +1129,9 @@ bool Config::auto_light_source_power_enabled() const {
 }
 
 void Config::auto_light_source_power_enabled(bool value) {
+    if (auto_light_source_power_enabled() != value) {
+        dirty_[kIndexAcquisitionOptions] = true;
+    }
     if (value) {
         acquisition_options_ |= (1 << 0);
     } else {
@@ -1048,6 +1144,9 @@ bool Config::demerge_object_enabled() const {
 }
 
 void Config::demerge_object_enabled(bool value) {
+    if (demerge_object_enabled() != value) {
+        dirty_[kIndexAcquisitionOptions] = true;
+    }
     if (value) {
         acquisition_options_ |= (1 << 1);
     } else {
@@ -1060,6 +1159,9 @@ bool Config::static_noise_removal_enabled() const {
 }
 
 void Config::static_noise_removal_enabled(bool value) {
+    if (static_noise_removal_enabled() != value) {
+        dirty_[kIndexAcquisitionOptions] = true;
+    }
     if (value) {
         acquisition_options_ |= (1 << 2);
     } else {
@@ -1072,6 +1174,9 @@ bool Config::precision_enabled() const {
 }
 
 void Config::precision_enabled(bool value) {
+    if (precision_enabled() != value) {
+        dirty_[kIndexAcquisitionOptions] = true;
+    }
     if (value) {
         acquisition_options_ |= (1 << 3);
     } else {
@@ -1084,6 +1189,9 @@ bool Config::saturation_compenstation_enabled() const {
 }
 
 void Config::saturation_compenstation_enabled(bool value) {
+    if (saturation_compenstation_enabled() != value) {
+        dirty_[kIndexAcquisitionOptions] = true;
+    }
     if (value) {
         acquisition_options_ |= (1 << 4);
     } else {
@@ -1096,6 +1204,9 @@ bool Config::overshoot_management_enabled() const {
 }
 
 void Config::overshoot_management_enabled(bool value) {
+    if (overshoot_management_enabled() != value) {
+        dirty_[kIndexAcquisitionOptions] = true;
+    }
     if (value) {
         acquisition_options_ |= (1 << 5);
     } else {
@@ -1104,6 +1215,9 @@ void Config::overshoot_management_enabled(bool value) {
 }
 
 void Config::baud_rate(BaudRate value) {
+    if (baud_rate_ != value) {
+        dirty_[kIndexBaudRate] = true;
+    }
     baud_rate_ = value;
 }
 
@@ -1112,6 +1226,9 @@ Config::BaudRate Config::baud_rate() const {
 }
 
 void Config::frame_format(FrameFormat value) {
+    if (frame_format_ != value) {
+        dirty_[kIndexFrameFormat] = true;
+    }
     frame_format_ = value;
 }
 
@@ -1140,6 +1257,9 @@ uint8_t Config::max_detections() const {
 }
 
 void Config::max_detections(uint8_t value) {
+    if (max_detections_ != value) {
+        dirty_[kIndexMaxDetections] = true;
+    }
     max_detections_ = value;
 }
 
@@ -1148,6 +1268,9 @@ uint16_t Config::inter_message_delay() const {
 }
 
 void Config::inter_message_delay(uint16_t value) {
+    if (inter_message_delay_ != value) {
+        dirty_[kIndexInterMessageDelay] = true;
+    }
     inter_message_delay_ = value;
 }
 
@@ -1156,6 +1279,9 @@ uint16_t Config::inter_cycle_delay() const {
 }
 
 void Config::inter_cycle_delay(uint16_t value) {
+    if (inter_cycle_delay_ != value) {
+        dirty_[kIndexInterCycleDelay] = true;
+    }
     inter_cycle_delay_ = value;
 }
 
