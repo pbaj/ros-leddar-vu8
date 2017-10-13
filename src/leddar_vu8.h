@@ -264,6 +264,7 @@ private:
     std::string interface_ = "can0";
     double send_timeout_ = 0;
     double recv_timeout_ = 0;
+    bool streaming_ = false;
     Config config_;
 };
 
