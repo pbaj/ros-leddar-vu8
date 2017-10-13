@@ -81,11 +81,12 @@ static bool send_can_data(int sock, uint32_t message_id, const uint8_t (&data)[8
     return true;
 }
 
-static bool recv_can_data(int sock, uint32_t &message_id, uint8_t (&data)[8]) {
+static bool recv_can_data(int sock, uint32_t &message_id, uint8_t (&data)[8], int &error) {
     struct can_frame frame;
     int rc = read(sock, &frame, sizeof(frame));
     if (rc != sizeof(frame)) {
         LOG_ERROR("recv can frame failed w/ errno " << errno << " - " << strerror(errno));
+        error = errno;
         return false;
     }
     message_id = frame.can_id;
@@ -95,6 +96,11 @@ static bool recv_can_data(int sock, uint32_t &message_id, uint8_t (&data)[8]) {
     }
     memcpy(data, frame.data, 8);
     return true;
+}
+
+static bool recv_can_data(int sock, uint32_t &message_id, uint8_t (&data)[8]) {
+    int error = 0;
+    return recv_can_data(sock, message_id, data, error);
 }
 
 static bool send_and_recv_can_data(
@@ -108,8 +114,9 @@ static bool send_and_recv_can_data(
     static uint8_t error[] = { 0xff, 0xff, 0xff, 0xff, 0xff, 0xff };
     uint32_t message_id;
     unsigned int remaining = 1 + retries;
+    int error_no = 0;
 
-    while (remaining != 0) {
+    while (remaining != 0 && error_no != EINTR) {
         if (retries != 0 && remaining != retries + 1) {
             LOG_INFO("retry " << retries + 1 - remaining << "/" << retries << " rx_message_id=" << rx_message_id <<
                     " tx_message_id=" << tx_message_id);
@@ -125,7 +132,8 @@ static bool send_and_recv_can_data(
         bool valid = false;
         while (true) {
             // answer
-            if (!recv_can_data(sock, message_id, answer)) {
+            error_no = 0;
+            if (!recv_can_data(sock, message_id, answer, error_no)) {
                 break;
             }
 
@@ -173,8 +181,9 @@ static bool send_and_echo_can_data(
     uint32_t message_id;
     uint8_t answer[8] = {0};
     unsigned int remaining = 1 + retries;
+    int error_no = 0;
 
-    while (remaining != 0) {
+    while (remaining != 0 && error_no != EINTR) {
         if (retries != 0 && remaining != retries + 1) {
             LOG_INFO("retry " << retries + 1 - remaining << "/" << retries << " rx_message_id=" << rx_message_id <<
                     " tx_message_id=" << tx_message_id);
@@ -187,7 +196,8 @@ static bool send_and_echo_can_data(
         }
 
         // recv answer
-        if (!recv_can_data(sock, message_id, answer)) {
+        error_no = 0;
+        if (!recv_can_data(sock, message_id, answer, error_no)) {
             remaining -= 1;
             continue;
         }
@@ -409,7 +419,7 @@ void Stream::Listen() {
     ListeningGuard listening_guard(listening_);
     listening_cv_.notify_all();
 
-    LOG_INFO("streaming to 0x" << std::hex << sock_);
+    LOG_INFO("listening to 0x" << std::hex << sock_);
 
     int rc;
     uint32_t message_id;
@@ -491,6 +501,8 @@ void Stream::Listen() {
             break;
         }
     }
+
+    LOG_INFO("stopped listening to 0x" << std::hex << sock_);
 }
 
 // Sensor
@@ -655,21 +667,25 @@ bool Sensor::StartStream(unsigned int retry) {
         return false;
     }
     LOG_INFO("started streaming detections");
+    streaming_ = true;
     return true;
 }
 
 bool Sensor::StopStream(unsigned int retry) {
-    uint8_t data[8] = {0};
-    data[0] = 1;
-    if (!send_and_echo_can_data(
-            sock_,
-            config_.base_rx_message_id(),
-            data,
-            config_.base_tx_message_id(),
-            retry)) {
-        return false;
+    if (streaming_) {
+        uint8_t data[8] = {0};
+        data[0] = 1;
+        if (!send_and_echo_can_data(
+                sock_,
+                config_.base_rx_message_id(),
+                data,
+                config_.base_tx_message_id(),
+                retry)) {
+            return false;
+        }
+        LOG_INFO("stopped streaming detections");
+        streaming_ = false;
     }
-    LOG_INFO("stopped streaming detections");
     return true;
 }
 
